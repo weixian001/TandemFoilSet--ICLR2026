@@ -1,0 +1,99 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      fvSolution;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    cellDisplacement
+    {
+        solver          PCG;
+        preconditioner  DIC;
+
+        tolerance       1e-05;
+        relTol          0;
+        maxIter         1000;
+    }
+
+    p
+    {
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-8;
+        relTol          0.01;
+    }
+
+    pFinal
+    {
+        $p;
+	relTol		0;
+    }
+
+    yPsi
+    {
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-5;
+        relTol          0.0;
+    }
+
+    "(U|k|omega|epsilon|nuTilda)"
+    {
+        //solver          smoothSolver; //PBiCGStab;
+	//smoother	symGaussSeidel;
+        solver          PBiCGStab;
+        preconditioner  DILU;
+        tolerance       1e-8;
+        relTol          0.01;
+    }
+    
+    "(U|k|omega|epsilon|nuTilda)Final"
+    {
+        $U;
+        relTol          0.0;
+    }
+}
+
+SIMPLE
+{
+    //momentumPredictor   true;
+    //nOuterCorrectors    1;
+    //nCorrectors         2;
+    nNonOrthogonalCorrectors 1;
+    consistent		no;
+
+    residualControl
+    {
+        p               pRes;
+        U               URes;
+        "(k|omega|nuTilda|epsilon|f|v2)"        otherRes;
+        //"(k|epsilon|omega|f|v2)" 1e-4;
+    }
+}
+
+relaxationFactors
+{ // unuse when turn on consistent
+    fields
+    {
+        p               pRelax;
+    }
+    
+    equations
+    {
+        U               URelax;
+        "(k|omega|epsilon|nuTilda)"         otherRelax;
+    }
+}
+
+// ************************************************************************* //

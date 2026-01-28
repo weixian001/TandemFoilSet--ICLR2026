@@ -1,0 +1,197 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  5.x                                   |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+scale 1.0;	//mesh scale
+domainsize halfdomain;
+BLdelta BLvalue;
+
+//domain bounds
+xmin #calc "$domainsize*-1.0"; //-100.0;
+xmax #calc "$domainsize + 1.0"; //101.0;
+ymin  0.0;
+ymax  1.0;
+zmin -1.0;
+zmax $domainsize; // 100.0;
+
+//cell size
+mindelta cellSize;
+
+refineDis 1.0;
+
+xAirfoil 0.0;
+zAirfoil 0.0;
+
+//thickness of middle, interim points
+// xmino -- xmini -- xAirfoil --  xmaxi -- xmaxo
+xmaxi #calc "( 1.0 + ($refineDis) )"; //2.0
+xmini #calc "( ($xAirfoil) - ($refineDis) )"; //-1
+
+xRDis #calc "($xmax)-($xmaxi)";
+xMDis #calc "($xmaxi)-($xmini)";
+xLDis #calc "($xmini)-($xmin)";
+
+zmaxi $zAirfoil; // #calc "( ($zAirfoil) + ($refineDis) )"; //0
+zmini #calc "( ($zAirfoil) - 0.8 )"; //-0.8
+
+zTDis #calc "($zmax)-($zmaxi)";
+zMDis #calc "($zmaxi)-($zmini)";
+zBDis #calc "($zmini)-($zmin)";
+
+zRatio		1.03;
+zBCells		92; //159; // for bl thicness of 0.2m
+zBFarField	$BLdelta;
+zBexpsRatioF    #calc "$mindelta/$zBFarField";
+
+zTCells		#calc "ceil(log(1-($zTDis/$mindelta)*(1-$zRatio))/log($zRatio))";
+zTFarField	#calc "$mindelta*pow($zRatio,$zTCells-1)";
+zTexpsRatioF    #calc "$mindelta/$zTFarField";
+
+xRCells		#calc "ceil(log(1-($xRDis/$mindelta)*(1-$zRatio))/log($zRatio))";
+xRFarField	#calc "$mindelta*pow($zRatio,$xRCells-1)";
+xRexpsRatioF    #calc "$mindelta/$xRFarField";
+
+xLCells		#calc "ceil(log(1-($xLDis/$mindelta)*(1-$zRatio))/log($zRatio))";
+xLFarField	#calc "$mindelta*pow($zRatio,$xLCells-1)";
+xLexpsRatioF    #calc "$mindelta/$xLFarField";
+
+//cell count around airfoil
+xMCells 	#calc "round(( $xMDis ) / ($mindelta))";
+zMCells 	#calc "round(( $zMDis ) / ($mindelta)) ";
+yCells 1; 
+
+vertices
+(
+    //BLOCK1 TOP
+    ($xmin $ymin $zmin )	//0
+    ($xmax $ymin $zmin )	//1
+    ($xmax $ymax $zmin )	//2
+    ($xmin $ymax $zmin )	//3
+    ($xmin $ymin $zmax )	//4
+    ($xmax $ymin $zmax )	//5
+    ($xmax $ymax $zmax )	//6
+    ($xmin $ymax $zmax )	//7
+);
+
+blocks
+(
+    //BLOCK1
+    hex (0 1 2 3 4 5 6 7) 
+    ( #calc "$xLCells + $xMCells + $xRCells" // + $xRefineCells*2" 
+      $yCells 
+      #calc "$zTCells + $zMCells + $zBCells")// + $zRefineCells*2" ) 
+    simpleGrading 
+    (
+        //x-direction
+        (
+	 	($xLDis 	$xLCells 	$xLexpsRatioF)
+		//($refineDis 	$xRefineCells 	$expsRatio)
+		($xMDis		$xMCells	1)
+                //($refineDis	$xRefineCells	#calc "1/$expsRatio") //  length, # of cell, expansion ratio
+                ($xRDis 	$xRCells 	#calc "1/$xRexpsRatioF") //  length, # of cell, expansion ratio
+        )
+
+        //y-direction
+        1
+
+        //z-direction
+        (
+	 	//($zTDis 	$zTCells 	$expsRatioF)
+                ($zBDis 	$zBCells 	$zBexpsRatioF) //  length, # of cell, expansion ratio
+		//($refineDis 	$zRefineCells 	#calc "1/$expsRatio")
+		($zMDis		$zMCells	1)
+                //($refineDis	$zRefineCells	$expsRatio) //  length, # of cell, expansion ratio
+	 	($zTDis 	$zTCells 	#calc "1/$zTexpsRatioF")
+                //($zBDis 	$zBCells 	#calc "1/$expsRatioF") //  length, # of cell, expansion ratio
+        )
+	
+    )
+);
+
+edges
+(
+
+);
+
+boundary
+(
+    //Define this patch empty at the begining so the overset patch is the first one in the file boundary
+
+    oversetPatch
+    {
+        type overset;
+        faces ();
+    }
+    
+    Inlet
+    {
+        type patch;
+        faces
+        (
+            (0 4 7 3)
+        );
+    }
+    
+    Outlet
+    {
+        type patch;
+        faces
+        (
+            (2 6 5 1)
+        );
+    }
+    
+    Bottom
+    {
+        type wall;
+        faces
+        (
+            (0 1 2 3)
+        );
+    }
+   
+    Top
+    {
+        type patch;
+        faces
+        (
+            (4 5 6 7)
+        );
+    }
+
+    Back
+    {
+        type empty;
+        faces
+        (
+            (0 1 5 4)
+        );
+    }
+
+    Front
+    {
+        type empty;
+        faces
+        (
+            (7 6 2 3)
+        );
+    }
+);
+
+mergePatchPairs
+(
+);
+
+// ************************************************************************* //

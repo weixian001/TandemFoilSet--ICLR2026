@@ -1,0 +1,8 @@
+solverInfo
+{
+    type            solverInfo;
+    libs            ("libutilityFunctionObjects.so");
+    writeControl    timeStep;
+    fields          (U p);
+    writeResidualFields no;
+}

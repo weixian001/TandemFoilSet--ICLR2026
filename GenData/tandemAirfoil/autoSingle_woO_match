@@ -1,0 +1,86 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+naca1=(0 1 2 3 4 5 6) 
+
+naca2=(0 1 2 3 4 5 6)
+
+nacaset=(05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25)
+
+simType=(RAS)
+Re=500
+aoa=0 # or 5
+Resize=1.0
+for k in ${naca1[@]}
+do
+for j in ${naca2[@]}
+do
+for i in ${nacaset[@]}
+do
+	#rootCase="single_Re${Re}_aoa${aoa}_match"
+	rootCase="singleRe500AOA5_match"
+	case="naca_$k$j$i"
+	jobName="naca_$k$j$i"
+	rm -r $rootCase/$case
+	mkdir $rootCase/$case
+	cp -r tem_autosinlge_woO_match/* $rootCase/$case
+
+	cd $rootCase/$case
+	blockDict="system/blockMeshDict"
+
+	sed -i "s/maxHvalue/0.$i/g" $blockDict
+	sed -i "s/naca1digit/$k/g" $blockDict
+	sed -i "s/naca2digit/$j/g" $blockDict
+	if [ $j -le 3 ]
+	then
+		sed -i "s/xLPvalue/0.3/g" $blockDict
+		sed -i "s/xUCellsvalue/42/g" $blockDict #42
+		sed -i "s/xMCellsvalue/97/g" $blockDict
+	elif [ $j -eq 4 ]
+	then
+		sed -i "s/xLPvalue/0.4/g" $blockDict
+		sed -i "s/xUCellsvalue/55/g" $blockDict #55
+		sed -i "s/xMCellsvalue/83/g" $blockDict
+	elif [ $j -eq 5 ]
+	then
+		sed -i "s/xLPvalue/0.5/g" $blockDict
+                sed -i "s/xUCellsvalue/69/g" $blockDict #69
+                sed -i "s/xMCellsvalue/69/g" $blockDict
+	else
+		sed -i "s/xLPvalue/0.$j/g" $blockDict
+		sed -i "s/xUCellsvalue/83/g" $blockDict #83
+		sed -i "s/xMCellsvalue/55/g" $blockDict
+	fi
+		sed -i "s/dxMLEvalue/0.002/g" $blockDict
+		sed -i "s/dxMTEvalue/0.005/g" $blockDict
+		sed -i "s/dxMchvalue/0.01/g" $blockDict
+		sed -i "s/BLvalue/0.001/g" $blockDict
+		sed -i "s/FarFieldvalue/0.2/g" $blockDict
+		sed -i "s/zCellsvalue/188/g" $blockDict
+		sed -i "s/xDCellsvalue/188/g" $blockDict
+
+	sed -i "s/simType;/${simType[0]};/g" constant/turbulenceProperties
+	sed -i "s/jobName/$jobName/g" run.pbs
+	sed -i "s/Resize/$Resize/g" $blockDict 0.komega/flowState Allrun
+	sed -i "s/AOA/$aoa/g" Allrun
+	sed -i "s/Re number;/Re $Re;/g" 0.komega/flowState
+	sed -i "s/jobName/$case/g" run.pbs
+        sed -i "s/pRelax/0.3/g" system/fvSolution
+        sed -i "s/URelax/0.5/g" system/fvSolution
+        sed -i "s/otherRelax/0.5/g" system/fvSolution
+        sed -i "s/pRes/1e-6/g" system/fvSolution
+        sed -i "s/URes/1e-6/g" system/fvSolution
+        sed -i "s/otherRes/1e-5/g" system/fvSolution
+	if [ $i -ge 24 ]
+	then
+		sed -i "s/wCoeff/20.0/g" 0.komega/flowState
+		sed -i "s/nuCoeff/1.0/g" 0.komega/flowState
+	else
+		sed -i "s/wCoeff/2.0/g" 0.komega/flowState
+		sed -i "s/nuCoeff/1e-3/g" 0.komega/flowState
+	fi
+	./Allrun
+	cd ../../
+done
+done
+done
+#------------------------------------------------------------------------------

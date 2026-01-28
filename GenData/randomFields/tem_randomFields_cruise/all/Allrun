@@ -1,0 +1,19 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+
+./Allclean
+
+cp -r 0.komega 0
+runApplication blockMesh
+
+mergeMeshes . ../airfoil_f -overwrite > /dev/null
+mergeMeshes . ../airfoil_b -overwrite > /dev/null
+
+runApplication checkMesh
+
+# Use cellSets to write zoneID
+runApplication setFields
+qsub run.pbs
+#------------------------------------------------------------------------------

@@ -1,0 +1,33 @@
+airfoil_f //postProcess -funcs force -time 0:0.1 -region nonLinearZone
+{
+	type            forceCoeffs;
+        libs            ("libforces.so");
+        writeControl    writeTime;
+        patches		(Airfoil_f);
+	rho	    rhoInf;
+	rhoInf	    1.225;
+	CofR	    (#calc "0.3*$c_f" 0 0);
+        liftDir     $liftD;
+        dragDir     $dragD;
+        pitchAxis   (0 1 0);
+        magUInf     Uinf;
+        lRef        $c_f; //span
+        Aref        $c_f; //chord length for 2D
+}
+
+airfoil_b //postProcess -funcs force -time 0:0.1 -region nonLinearZone
+{
+	type            forceCoeffs;
+        libs            ("libforces.so");
+        writeControl    writeTime;
+        patches		(Airfoil_b);
+	rho	    rhoInf;
+	rhoInf	    1.225;
+	CofR	    (#calc "0.3*$c_b" 0 -1);
+        liftDir     $liftD;
+        dragDir     $dragD;
+        pitchAxis   (0 1 0);
+        magUInf     Uinf;
+        lRef        $c_b; //span
+        Aref        $c_b; //chord length for 2D
+}

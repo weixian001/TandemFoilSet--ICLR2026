@@ -1,0 +1,12 @@
+// postProcess -func 'sampleLine' -fields '(U p)' -latestTime
+                type    sets;
+                libs ("libsampling.so");
+                //interpolationScheme cellPointFace; //cell-face interpolation
+                interpolationScheme cell;
+                setFormat csv;
+                fields  (p U);
+		#include "../0/flowState"
+                sets
+                (
+			centreline{ type midPoint; axis x; start (-2 0.25 $cutZ); end (9 0.25 $cutZ); }
+                );

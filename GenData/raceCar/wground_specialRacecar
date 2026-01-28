@@ -1,0 +1,99 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+# Source the function file
+#. ./min_y_calculator_inverse
+. ./min_inverse_wSegment
+. ./max_inverse_wSegment
+
+nacaset=(CH10 E423 FX74 LA5055 S1210)
+
+simType=(RAS)
+Resize=1.0
+readarray -t Re < random_ReAoaHc/seed_901_Re.txt
+readarray -t aoa < random_ReAoaHc/seed_901_Aoa.txt
+readarray -t h_c < random_ReAoaHc/seed_901_Hc.txt
+kit_vis=1.461e-5
+var=(10)
+n=0
+for i in ${nacaset[@]}
+do
+	echo "Contrusting ${n}th case ...... "
+	rootCase="wground_single_randomFields2"
+	case="naca_${i}_Re${Re[n]}_aoa${aoa[n]}_hc${h_c[n]}"
+	jobName="${i}"
+
+	rm -r $rootCase/$case
+	mkdir $rootCase/$case
+	#cp -r tem_wground_randomFields_inverse/* $rootCase/$case
+	cp -r tem_wground_randomFields_inverse_linearUpwind/* $rootCase/$case
+	cp -r oversetMeshes_raceCar/${i} $rootCase/$case/airfoil/constant/polyMesh
+
+	cd $rootCase/$case
+	blockDictall="all/system/blockMeshDict"
+	nu=$(echo "${kit_vis}" | awk '{ printf "%.8f\n", $1 }')
+	RE=$(echo "${Re[n]}" | awk '{ printf "%.1f\n", $1 }')
+	result=$(echo "${RE}*${nu}/$Resize" | bc -l)
+	Umag=$(printf "%.5f" $result)
+	echo "at Umag = $Umag"
+	sed -i "s/Uinf;/$Umag;/g" all/system/forces
+
+	# calculate min y coordinate after rotate at aoa at trailing edge
+	#result=$(calculate_min ${aoa[n]} ${k} ${j} ${i}) # inputs: aoa, naca1, naca2, naca34
+	#min_y=$(echo $result | cut -d' ' -f2)
+	#echo "Get Naca $k$j$i minimum y-coordinate: $min_y" # neg by deflaut
+
+	# calculate min max coordinates of special airfoils after rotate at aoa at trailing edge
+	result=$(calculate_min_wsegment "airfoil/constant/polyMesh/segment.dat" ${aoa[n]}) #inputs: segment file, aoa
+	min_y=$(echo $result | cut -d' ' -f2)
+	min_x=$(printf "%.3f" $(echo $result | cut -d' ' -f4) )
+	echo "Get Airfoil ${i} minimum xy-coordinate: ($min_x, $min_y)" # neg by deflaut
+	result=$(calculate_max_wsegment "airfoil/constant/polyMesh/segment.dat" ${aoa[n]})
+	max_y=$(echo $result | cut -d' ' -f2)
+	max_x=$(echo $result | cut -d' ' -f4)
+	echo "Get Airfoil ${i} maximum xy-coordinate: ($max_x, $max_y)" 
+
+	# resultant vertical translation scale
+	resultH_c=$(printf "%.3f" $( echo "( ${h_c[n]} - ${min_y} )/$Resize" | bc -l ) )
+	echo "Resultant vertical translation: $resultH_c"
+	sed -i "s/h_c/${resultH_c}/g" airfoil/Allrun
+
+	zmax_y=$(printf "%.3f" $( echo "( ${h_c[n]} - ${min_y} + ${max_y} )" | bc -l ) )
+	#echo "Resultant zmaxi : $zmax_y"
+	sed -i "s/zmin_y;/zmin_y ${h_c[n]};/g" $blockDictall
+	sed -i "s/zmax_y;/zmax_y ${zmax_y};/g" $blockDictall
+	xmax_x=$(printf "%.3f" ${max_x} )
+	#echo "Resultant xmaxi : $xmax_x"
+	sed -i "s/xmin_x;/xmin_x ${min_x};/g" $blockDictall
+	sed -i "s/xmax_x;/xmax_x ${xmax_x};/g" $blockDictall
+	echo "Bound box of refined background mesh: (${min_x}, ${h_c[n]}) , (${xmax_x}, ${zmax_y})"
+
+	sed -i "s/zC2CExpRatio/1.1/g" $blockDictall
+	sed -i "s/kinematic_viscosity/${kit_vis}/g" all/0.komega/flowState
+	sed -i "s/halfdomain/${var[0]}/g" all/0.komega/flowState $blockDictall
+	sed -i "s/BLvalue/2e-5/g" all/0.komega/flowState
+	sed -i "s/cellSize/0.005/g" $blockDictall
+	sed -i "s/simType;/${simType[0]};/g" all/constant/turbulenceProperties
+	sed -i "s/jobName/$jobName/g" all/run.pbs
+	sed -i "s/Resize/$Resize/g" $blockDictall all/0.komega/flowState
+	sed -i "s/AOA/${aoa[n]}/g" airfoil/Allrun
+	sed -i "s/Re number;/Re ${Re[n]};/g" all/0.komega/flowState
+	sed -i "s/jobName/$case/g" all/run.pbs
+        sed -i "s/pRelax/0.3/g" all/system/fvSolution
+        sed -i "s/URelax/0.5/g" all/system/fvSolution
+        sed -i "s/otherRelax/0.5/g" all/system/fvSolution
+        sed -i "s/pRes/5e-6/g" all/system/fvSolution
+        sed -i "s/URes/1e-6/g" all/system/fvSolution
+        sed -i "s/otherRes/5e-6/g" all/system/fvSolution
+	sed -i "s/wCoeff/2.0/g" all/0.komega/flowState
+	#if (( $(awk 'BEGIN { if ( "${h_c[n]}" >= 0.2 && "${h_c[n]}" <= 0.3) print 1; else print 0 }') )); then
+	#	sed -i "s/refine_range;/refine_range 2;/g" $blockDictall
+	#elif (( $(awk 'BEGIN { if ("${h_c[n]}" < 0.2) print 1; else print 0 }') )); then
+	#	sed -i "s/refine_range;/refine_range 1;/g" $blockDictall
+	#else
+	#	sed -i "s/refine_range;/refine_range 4;/g" $blockDictall
+	#fi
+	./Allrun
+	cd ../../
+	let "n+=1"
+done
+#------------------------------------------------------------------------------

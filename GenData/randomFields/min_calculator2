@@ -1,0 +1,91 @@
+#!/bin/sh
+
+# Define a function to calculate minimum y-coordinate
+calculate_min() {
+    local resize=$1
+    local alpha_deg=$2
+    local m=$3
+    local p=$4
+    local t=$5
+    m=$(echo "$m*0.01" | bc -l)
+    p=$(echo "$p*0.1" | bc -l)
+    t=$(echo "$t*0.01" | bc -l)
+
+    # Convert angle of attack to radians
+    alpha_rad=$(echo "scale=6; $alpha_deg * (3.141592653589793 / 180)" | bc -l)
+
+    # Initialize variables for minimum y-coordinate and corresponding x-coordinate
+    min_y=999999
+    min_yx=0
+    # Initialize variables for minimum x-coordinate and corresponding y-coordinate
+    min_x=999999
+    min_xy=0
+
+    # Loop counter
+    beta=0
+
+    # Calculate coordinates and find minimum y-coordinate
+    while [ "$(echo "$beta <= 3.14159" | bc)" -eq 1 ]; do
+        yc=0
+        yt=0
+        x=$(echo "0.5*(1-c($beta))" | bc -l)
+        yt=$(echo "5*$t*(0.2969*sqrt($x) - 0.126*$x - 0.3516*$x*$x + 0.2843*$x*$x*$x - 0.1015*$x*$x*$x*$x)" | bc -l)
+
+	if [ "$(echo "$m < 0.1" | bc)" -eq 1 ]; then
+		xu=$(echo "$resize*$x" | bc -l )
+		yu=$(echo "$resize*$yt" | bc -l )
+		xl=$(echo "$resize*$x" | bc -l )
+                yl=$(echo "-1.0*$resize*$yt" | bc -l )
+	else
+        	# Calculate mean camber line and thickness distribution
+        	if [ "$(echo "$x <= $p" | bc)" -eq 1 ]; then
+            	   yc=$(echo "($m/($p*$p)) * (2*$p*$x - $x*$x)" | bc -l)
+            	   dycdx=$(echo "(2*$m/($p*$p)) * ($p - $x)" | bc -l)
+        	else
+            	   yc=$(echo "($m/((1-$p)*(1-$p))) * (1 - 2*$p + 2*$p*$x - $x*$x)" | bc -l)
+            	   dycdx=$(echo "(2*$m/((1-$p)*(1-$p))) * ($p - $x)" | bc -l)
+        	fi
+
+        	# Calculate airfoil coordinates
+		xu=$(echo "$resize*($x - $yt*s(a($dycdx)))" | bc -l)
+		yu=$(echo "$resize*( $yc + $yt*c(a($dycdx)) )" | bc -l)
+		xl=$(echo "$resize*($x + $yt*s(a($dycdx)))" | bc -l)
+		yl=$(echo "$resize*( $yc - $yt*c(a($dycdx)) )" | bc -l)
+	fi
+
+        # Apply angle of attack, positive angle for clockwise rotation
+        x_rot=$(echo "1 + ($xl-1)*c($alpha_rad) + $yl*s($alpha_rad)" | bc -l)
+        y_rot=$(echo " -($xl-1)*s($alpha_rad) + $yl*c($alpha_rad)" | bc -l)
+
+        # Find the minimum y-coordinate
+	if [ "$(echo "$y_rot < $min_y" | bc)" -eq 1 ]; then
+            min_y=$y_rot
+            min_yx=$x_rot
+        fi
+	# Find the minimum x-coordinate
+	if [ "$(echo "$x_rot < $min_x" | bc)" -eq 1 ]; then
+            min_x=$x_rot
+            min_xy=$y_rot
+        fi
+
+	# Check point on upper surface
+        x_rot=$(echo "1 + ($xu-1)*c($alpha_rad) + $yu*s($alpha_rad)" | bc -l)
+        y_rot=$(echo " -($xu-1)*s($alpha_rad) + $yu*c($alpha_rad)" | bc -l)
+        # Find the minimum y-coordinate
+	if [ "$(echo "$y_rot < $min_y" | bc)" -eq 1 ]; then
+            min_y=$y_rot
+            min_yx=$x_rot
+        fi
+	# Find the minimum x-coordinate
+	if [ "$(echo "$x_rot < $min_x" | bc)" -eq 1 ]; then
+            min_x=$x_rot
+            min_xy=$y_rot
+        fi
+
+        # Increment beta
+        beta=$(echo "scale=6; $beta + 0.01" | bc -l)
+    done
+
+    echo "$min_yx $min_y $min_xy $min_x"
+}
+

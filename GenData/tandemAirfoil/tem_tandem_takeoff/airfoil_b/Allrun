@@ -1,0 +1,18 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+sed -i 's/Airfoil/Airfoil_b/g' constant/polyMesh/boundary
+transformPoints -scale Resize > /dev/null
+transformPoints -translate "(-Resize 0 0)" > /dev/null
+transformPoints -rotate-angle "((0 1 0) AOA)" > /dev/null
+transformPoints -translate "(Resize 0 0)" > /dev/null
+transformPoints -translate "(0 0 -1)" > /dev/null
+transformPoints -translate "(0 0 ground)" > /dev/null
+transformPoints -translate "(Resize 0 0)" > /dev/null
+transformPoints -translate "(stagger 0 0)" > /dev/null
+transformPoints -translate "(0 0 gap)" > /dev/null
+
+#runApplication topoSet
+
+#------------------------------------------------------------------------------

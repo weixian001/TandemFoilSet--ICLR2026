@@ -1,0 +1,27 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -l select=1:ncpus=48:mem=100G:mpiprocs=48:ompthreads=1
+#PBS -l walltime=5:00:00
+#PBS -N jobName
+#PBS -M weixian001@e.ntu.edu.sg 
+#PBS -P 12003607
+##PBS -P 12002668
+
+# upload file to project_directory
+# rsync -Aav --checksum <source_dir_path> /home/projects/12001585/folder
+
+module load openfoam/2112
+module load openfoam/2112
+cd $PBS_O_WORKDIR
+
+decomposePar -force > log.dec 2>&1
+mpirun -np 48 simpleFoam -parallel  > log.sol 2>&1
+reconstructPar -latestTime
+rm -r processor*
+#postProcess -func 'sampleLine' -latestTime -fields '(U p)'
+simpleFoam -postProcess -func 'yPlus' -latestTime
+postProcess -func 'pWall' -fields '(p U)' -latestTime
+postProcess -func writeCellCentres -latestTime > /dev/null 2>&1
+grep -oP '(?<=ClockTime\s=\s)\S+' log.sol > clockTime.dat 2>&1
+grep -oP '(?<=ExecutionTime\s=\s)\S+' log.sol > exeTime.dat 2>&1
+rm -r dynamicCode

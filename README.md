@@ -222,7 +222,7 @@ The extraction script automatically detects configuration types based on path pa
 ### Flow Conditions
 
 - **Fixed Conditions**: Re=500, AoA=0 or 5
-- **Random Conditions**: Re ∈ [10⁵, 5×10⁶], AoA ∈ [-5°, 6°]
+- **Random Conditions**: Re ∈ [10⁵, 5×10⁶], AoA ∈ [-5°, 7°]
 
 ### Geometry Features
 

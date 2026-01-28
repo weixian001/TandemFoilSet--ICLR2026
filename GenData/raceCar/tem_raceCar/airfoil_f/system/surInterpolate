@@ -1,0 +1,11 @@
+
+// postProcess -func surInterpolate -field U -time 10 
+surfaceInterpolate1
+{
+    // Mandatory entries (unmodifiable)
+    type	surfaceInterpolate;
+    libs        (fieldFunctionObjects);
+    fields      ((U surfaceU) (p surfaceP));
+    enabled         true;
+    writeControl    writeTime;
+}

@@ -1,0 +1,16 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+
+# Serial
+#runApplication $(getApplication)
+
+# Parallel
+decomposePar -force > log.dec 2>&1
+mpirun -np 24 overSimpleFoam -parallel  > log.sol 2>&1
+reconstructPar -latestTime
+rm -r processor*
+#postProcess -func 'sampleLine' -latestTime -fields '(U p)'
+postProcess -funcs '(pWall_f pWall_b)' -fields '(p U)' -latestTime
+#------------------------------------------------------------------------------

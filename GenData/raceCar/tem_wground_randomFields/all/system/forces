@@ -1,0 +1,17 @@
+airfoil //postProcess -funcs force -time 0:0.1 -region nonLinearZone
+{
+	type            forceCoeffs;
+        libs            ("libforces.so");
+        writeControl    writeTime;
+        patches		(Airfoil);
+	rho	    rhoInf;
+	rhoInf	    $rhoTotal;
+	CofR	    (#calc "0.3*$c" 0 0);
+        liftDir     $liftD;
+        dragDir     $dragD;
+        pitchAxis   (0 1 0);
+        magUInf     Uinf;
+        lRef        $c; //span
+        Aref        #calc "$c*$c"; //chord length for 2D
+}
+

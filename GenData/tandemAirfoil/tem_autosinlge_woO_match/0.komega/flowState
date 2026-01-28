@@ -1,0 +1,26 @@
+rho 1.16144;
+Re number;
+Umag 0.146;
+c Resize;
+y_l #calc "0.0014*$c";
+domain #calc "$c*20.0";
+nu #calc "($Umag*$c)/$Re";
+omegaInf #calc "(wCoeff*$Umag)/$domain";
+omega $omegaInf;
+omega_wall #calc "(60.0*$nu)/(0.075*$y_l*$y_l)";
+nuT #calc "nuCoeff*$nu";
+Re_L #calc "($Umag*$domain)/$nu";
+kInf #calc "$nuT*$omegaInf";
+k $kInf;
+pTotal 0.0; //#calc "($p_s/$rho)";
+AOA 0.0;
+radAOA #calc "degToRad($AOA)";
+Ux #calc "$Umag*cos($radAOA*1.0)";
+Uy 0.0; //#calc "$Umag*sin($radAOA*1.0)"; //0.0;
+Uz #calc "$Umag*sin($radAOA*1.0)";
+Uinlet ($Ux $Uy $Uz);
+liftD (#calc "-1.0*sin($radAOA*1.0)" 0.0 #calc "cos($radAOA*1.0)"); // 0.0);
+dragD (#calc "cos($radAOA*1.0)" 0.0 #calc "sin($radAOA*1.0)"); // 0.0);
+
+cutX 1.25;
+cutZ 0.0;

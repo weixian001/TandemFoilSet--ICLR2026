@@ -1,0 +1,13 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+
+n=(5 117 229 341 453 565 677 789) #5 133 261 389 517 645 773 901)
+naca1=(2 3 4 5 6 7 8 9)
+range=(0 1 2 3 4 5 6 7)
+for k in ${range[@]}
+do
+	cp wground_singleRacecar wground_singleRacecar${k}
+	sed -i "s/firstnum/${naca1[$k]}/g" wground_singleRacecar${k}
+	sed -i "s/nnumber/${n[$k]}/g" wground_singleRacecar${k}
+	nohup ./wground_singleRacecar${k} > log.singleRacecar${k} 2>&1 &
+done

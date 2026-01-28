@@ -1,0 +1,83 @@
+#!/bin/sh
+
+# Define a function to calculate minimum y-coordinate
+calculate_max() {
+    local alpha_deg=$1
+    local m=$2
+    local p=$3
+    local t=$4
+
+    m=$(echo "$m*0.01" | bc -l)
+    p=$(echo "$p*0.1" | bc -l)
+    t=$(echo "$t*0.01" | bc -l)
+
+    # Convert angle of attack to radians
+    alpha_rad=$(echo "scale=6; $alpha_deg * (3.141592653589793 / 180)" | bc -l)
+
+    # Initialize variables for maximum y-coordinate and corresponding x-coordinate
+    max_y=-999999
+    max_yx=0
+    # Initialize variables for maximum x-coordinate and corresponding y-coordinate
+    max_x=-999999
+    max_xy=0
+
+    # Loop counter
+    beta=0
+
+    # Calculate coordinates and find minimum y-coordinate
+    while [ "$(echo "$beta <= 3.14159" | bc)" -eq 1 ]; do
+        yc=0
+        yt=0
+        x=$(echo "0.5*(1-c($beta))" | bc -l)
+        # Calculate mean camber line and thickness distribution
+        if [ "$(echo "$x <= $p" | bc)" -eq 1 ]; then
+            yc=$(echo "($m/($p*$p)) * (2*$p*$x - $x*$x)" | bc -l)
+            dycdx=$(echo "(2*$m/($p*$p)) * ($p - $x)" | bc -l)
+        else
+            yc=$(echo "($m/((1-$p)*(1-$p))) * (1 - 2*$p + 2*$p*$x - $x*$x)" | bc -l)
+            dycdx=$(echo "(2*$m/((1-$p)*(1-$p))) * ($p - $x)" | bc -l)
+        fi
+
+        yt=$(echo "5*$t*(0.2969*sqrt($x) - 0.126*$x - 0.3516*$x*$x + 0.2843*$x*$x*$x - 0.1015*$x*$x*$x*$x)" | bc -l)
+
+        # Calculate airfoil coordinates
+        xu=$(echo "$x - $yt*s(a($dycdx))" | bc -l)
+	yu=$(echo "-1.0*( $yc + $yt*c(a($dycdx)) )" | bc -l)
+        xl=$(echo "$x + $yt*s(a($dycdx))" | bc -l)
+	yl=$(echo "-1.0*( $yc - $yt*c(a($dycdx)) )" | bc -l)
+
+        # Apply angle of attack, positive angle for clockwise rotation
+        x_rot=$(echo "1 + ($xl-1)*c($alpha_rad) + $yl*s($alpha_rad)" | bc -l)
+        y_rot=$(echo " -($xl-1)*s($alpha_rad) + $yl*c($alpha_rad)" | bc -l)
+        # Find the maximum y-coordinate
+        if [ "$(echo "$y_rot > $max_y" | bc)" -eq 1 ]; then
+            max_y=$y_rot
+            max_yx=$x_rot
+        fi
+        # Find the maximum x-coordinate
+        if [ "$(echo "$x_rot > $max_x" | bc)" -eq 1 ]; then
+            max_xy=$y_rot
+            max_x=$x_rot
+        fi
+
+	# For lower surface (flipped)
+        x_rot=$(echo "1 + ($xu-1)*c($alpha_rad) + $yu*s($alpha_rad)" | bc -l)
+        y_rot=$(echo " -($xu-1)*s($alpha_rad) + $yu*c($alpha_rad)" | bc -l)
+        # Find the maximum y-coordinate
+        if [ "$(echo "$y_rot > $max_y" | bc)" -eq 1 ]; then
+            max_y=$y_rot
+            max_yx=$x_rot
+        fi
+        # Find the maximum x-coordinate
+        if [ "$(echo "$x_rot > $max_x" | bc)" -eq 1 ]; then
+            max_xy=$y_rot
+            max_x=$x_rot
+        fi
+
+        # Increment beta
+        beta=$(echo "scale=6; $beta + 0.01" | bc -l)
+    done
+
+    echo "$max_yx $max_y $max_xy $max_x"
+}
+

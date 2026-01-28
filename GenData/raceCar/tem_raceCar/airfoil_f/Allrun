@@ -1,0 +1,14 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/CleanFunctions      # Tutorial clean functions
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+sed -i 's/Airfoil/Airfoil_f/g' constant/polyMesh/boundary
+# Flip airfoil upside down
+transformPoints -rotate-angle "((1 0 0) 180)" > /dev/null
+# rotate at TE (1,0,0)
+transformPoints -translate "(-1 0 0)" > /dev/null
+transformPoints -rotate-angle "((0 1 0) AOA)" > /dev/null
+transformPoints -translate "(1 0 0)" > /dev/null
+transformPoints -translate "(0 0 h_c)" > /dev/null
+#---------------------------------------------------------------------

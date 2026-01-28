@@ -1,0 +1,20 @@
+type            surfaceFieldValue;
+libs            ("libfieldFunctionObjects.so");
+
+writeControl    writeTime;
+writeFields     true;
+
+surfaceFormat   raw;
+regionType      patch;
+name            Airfoil_f;
+
+operation       none;
+
+fields
+(
+    p
+    U
+    //Ma
+    //yPlus
+    //wallShearStress
+);

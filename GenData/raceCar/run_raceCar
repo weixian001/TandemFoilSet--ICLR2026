@@ -1,0 +1,24 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+airfoilf=(CH10 E423 FX74 LA5055 S1210 
+	2412 2716 2813 3715 3818
+	4211 4412 4514 5617 5813
+	6416 6717 7412 7514 7715
+	8412 8514 8615 8715 8813
+	9412 9514 9615 9715 9813)
+
+nm=(0 30 60 90 120 
+   150 180 210 240 270
+   300 330 360 390 420
+   450 480 510 540 570
+   600 630 660 690 720
+   750 780 810 840 870)
+n=0
+for k in ${nm[@]}
+do
+	cp wground_raceCar wground_raceCar${n}
+	sed -i "s/frontairfoil/${airfoilf[n]}/g" wground_raceCar${n}
+	sed -i "s/nnumber/${k}/g" wground_raceCar${n}
+	nohup ./wground_raceCar${n} > log.racecar${n} 2>&1 &
+	let "n+=1"
+done

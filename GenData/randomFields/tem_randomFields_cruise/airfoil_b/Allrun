@@ -1,0 +1,15 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+sed -i 's/Airfoil/Airfoil_b/g' constant/polyMesh/boundary
+# rotate at TE (1,0,0)
+transformPoints -translate "(-1 0 0)" > /dev/null
+transformPoints -rotate-angle "((0 1 0) AOA)" > /dev/null
+transformPoints -translate "(1 0 0)" > /dev/null
+# relocate to new orientation
+transformPoints -translate "(s_c 0 h_c)" > /dev/null
+
+#runApplication topoSet
+
+#------------------------------------------------------------------------------

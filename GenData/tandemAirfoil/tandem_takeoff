@@ -1,0 +1,68 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+airfoilf=(6 8 9 10 12 15 18 21 24 1408 1410 1412 2408 2410 2411 2412 2414 2415 2418 2421 2424 4412 4415 4418 4421 4424 6409 6412) 
+airfoilb=(6 8 9 10 12 15 18 21 24 1408 1410 1412 2408 2410 2411 2412 2414 2415 2418 2421 2424 4412 4415 4418 4421 4424 6409 6412) 
+simType=(RAS) #RAS)
+ini=(komega)
+Re=500
+aoa=5
+Resize=1
+readarray -t dist_S < random_SGH/seed_123_S.txt
+readarray -t dist_G < random_SGH/seed_123_G.txt
+readarray -t dist_H < random_SGH/seed_123_H.txt
+n=700
+for k in ${airfoilf[@]}
+do
+for j in ${airfoilb[@]}
+do
+	rootCase="takeoff_aoa5_seed123"
+	case="takeoff_naca_$k.$j.S${dist_S[n]}.G${dist_G[n]}.H${dist_H[n]}.AOA$aoa"
+	jobName="tk_$k.$j.S${dist_S[n]}.G${dist_G[n]}.H${dist_H[n]}"
+	rm -r $rootCase/$case
+	mkdir $rootCase/$case
+	cp -r tem_tandem_takeoff/* $rootCase/$case
+	cp -r naca/naca_$k $rootCase/$case/airfoil_f/constant/polyMesh
+	cp -r naca/naca_$j $rootCase/$case/airfoil_b/constant/polyMesh
+	cd $rootCase/$case
+	sed -i "s/0.which/0.${ini[0]}/g" all/Allrun
+	sed -i "s/simType;/${simType[0]};/g" all/constant/turbulenceProperties
+	sed -i "s/number/$Re/g" all/0.${ini[0]}/flowState
+	sed -i "s/.type/.small/g" all/Allrun
+	sed -i "s/Resize/$Resize/g" airfoil_f/Allrun airfoil_b/Allrun all/system/blockMeshDict.* all/0.${ini[0]}/flowState
+	sed -i "s/ground/${dist_H[n]}/g" airfoil_f/Allrun airfoil_b/Allrun
+	sed -i "s/AOA/$aoa/g" airfoil_f/Allrun airfoil_b/Allrun
+	sed -i "s/stagger/${dist_S[n]}/g" airfoil_b/Allrun
+	sed -i "s/gap/${dist_G[n]}/g" airfoil_b/Allrun
+	sed -i "s/jobName/$jobName/g" all/run.pbs
+	sed -i "s/pRelax/0.3/g" all/system/fvSolution
+	sed -i "s/URelax/0.5/g" all/system/fvSolution
+	sed -i "s/otherRelax/0.5/g" all/system/fvSolution
+	sed -i "s/pRes/1e-6/g" all/system/fvSolution
+	sed -i "s/URes/1e-6/g" all/system/fvSolution
+	if [ $k -eq 21 ] || [ $k -eq 2421 ]
+	then
+		sed -i "s/wCoeff/20.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/kCoeff/1.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/otherRes/1e-5/g" all/system/fvSolution
+	elif [ $k -eq 4421 ] || [ $k -eq 24 ] || [ $k -eq 2424 ]
+	then
+		sed -i "s/wCoeff/30.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/kCoeff/0.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/otherRes/1e-4/g" all/system/fvSolution
+	elif [ $k -eq 4424 ]
+	then
+		sed -i "s/wCoeff/50.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/kCoeff/0.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/otherRes/1e-4/g" all/system/fvSolution
+	else
+		sed -i "s/wCoeff/2.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/kCoeff/1.0/g" all/0.${ini[0]}/flowState
+		sed -i "s/otherRes/1e-5/g" all/system/fvSolution
+	fi
+	./Allrun
+	cd ../../
+	let "n+=1"
+	echo $n
+done
+done
+#------------------------------------------------------------------------------

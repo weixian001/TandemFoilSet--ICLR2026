@@ -1,0 +1,112 @@
+#!/bin/bash
+module load python/3.7.13
+#------------------------------------------------------------------------------
+n=nnumber #0 147 294 441 588 735 882
+naca1=(firstnum)
+
+naca2=(0 1 2 3 4 5 6)
+
+nacaset=(05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25)
+
+simType=(RAS)
+Resize=1.0
+
+readarray -t Re < random_cruise/seed_100_Re.txt
+readarray -t aoa < random_cruise/seed_100_Aoa.txt
+
+dxLE=0.0002
+dxTE=0.0002
+dxMch=0.01
+dxBL=2e-5
+kit_vis=1.461e-5
+var=(10)
+for k in ${naca1[@]}
+do
+for j in ${naca2[@]}
+do
+for i in ${nacaset[@]}
+do
+	echo "Contrusting ${n}th case ...... "
+	rootCase="single_randomFields2"
+	case="naca_${k}${j}${i}_Re${Re[n]}_aoa${aoa[n]}"
+	jobName="naca_$k$j$i"
+	rm -r $rootCase/$case
+	mkdir $rootCase/$case
+	cp -r tem_randomFields_single/* $rootCase/$case
+
+	cd $rootCase/$case
+	blockDict="system/blockMeshDict"
+	nu=$(echo "${kit_vis}" | awk '{ printf "%.8f\n", $1 }')
+        RE=$(echo "${Re[n]}" | awk '{ printf "%.1f\n", $1 }')
+        result=$(echo "${RE}*${nu}/$Resize" | bc -l)
+        Umag=$(printf "%.5f" $result)
+        echo "at Umag = $Umag"
+        sed -i "s/Uinf;/$Umag;/g" system/forces
+
+	sed -i "s/maxHvalue/0.$i/g" $blockDict
+	sed -i "s/naca1digit/$k/g" $blockDict
+	sed -i "s/naca2digit/$j/g" $blockDict
+
+	sed -i "s/dxMLEvalue/$dxLE/g" $blockDict
+	sed -i "s/dxMTEvalue/$dxTE/g" $blockDict
+	sed -i "s/dxMchvalue/$dxMch/g" $blockDict
+	sed -i "s/BLvalue/$dxBL/g" $blockDict 0.komega/flowState
+	sed -i "s/zC2CExpRatio/1.1/g" $blockDict
+
+	if [ $j -le 3 ]
+	then
+		sed -i "s/xLPvalue/0.3/g" $blockDict
+		result01=$(python test.py start_width=$dxLE end_width=$dxMch total_length=0.3 )
+		result02=$(python test.py start_width=$dxLE end_width=$dxMch total_length=0.7 )
+        	read -r N01 total_exp_ratio01 c2c_ratio01 <<< "$result01"
+        	read -r N02 total_exp_ratio02 c2c_ratio02 <<< "$result02"
+		sed -i "s/xUCellsvalue/$N01/g" $blockDict
+		sed -i "s/xMCellsvalue/$N02/g" $blockDict
+	elif [ $j -eq 4 ]
+	then
+		sed -i "s/xLPvalue/0.4/g" $blockDict
+		result01=$(python test.py start_width=$dxLE end_width=$dxMch total_length=0.4 )
+		result02=$(python test.py start_width=$dxLE end_width=$dxMch total_length=0.6 )
+        	read -r N01 total_exp_ratio01 c2c_ratio01 <<< "$result01"
+        	read -r N02 total_exp_ratio02 c2c_ratio02 <<< "$result02"
+		sed -i "s/xUCellsvalue/$N01/g" $blockDict
+		sed -i "s/xMCellsvalue/$N02/g" $blockDict
+	elif [ $j -eq 5 ]
+	then
+		sed -i "s/xLPvalue/0.5/g" $blockDict
+		result01=$(python test.py start_width=$dxLE end_width=$dxMch total_length=0.5 )
+        	read -r N01 total_exp_ratio01 c2c_ratio01 <<< "$result01"
+		sed -i "s/xUCellsvalue/$N01/g" $blockDict
+		sed -i "s/xMCellsvalue/$N01/g" $blockDict
+	else
+		sed -i "s/xLPvalue/0.$j/g" $blockDict
+		result01=$(python test.py start_width=$dxLE end_width=$dxMch total_length=0.6 )
+		result02=$(python test.py start_width=$dxLE end_width=$dxMch total_length=0.4 )
+        	read -r N01 total_exp_ratio01 c2c_ratio01 <<< "$result01"
+        	read -r N02 total_exp_ratio02 c2c_ratio02 <<< "$result02"
+		sed -i "s/xUCellsvalue/$N01/g" $blockDict
+		sed -i "s/xMCellsvalue/$N02/g" $blockDict
+	fi
+	echo "total cells are: $N01 and $N02"
+	sed -i "s/kinematic_viscosity/${kit_vis}/g" 0.komega/flowState
+        sed -i "s/halfdomain/${var[0]}/g" 0.komega/flowState $blockDict
+	sed -i "s/simType;/${simType[0]};/g" constant/turbulenceProperties
+	sed -i "s/jobName/$jobName/g" run.pbs
+	sed -i "s/Resize/$Resize/g" 0.komega/flowState
+	sed -i "s/AOA/${aoa[n]}/g" Allrun
+	sed -i "s/Re number;/Re ${Re[n]};/g" 0.komega/flowState
+	sed -i "s/jobName/$case/g" run.pbs
+        sed -i "s/pRelax/0.1/g" system/fvSolution
+        sed -i "s/URelax/0.7/g" system/fvSolution
+        sed -i "s/otherRelax/0.7/g" system/fvSolution
+        sed -i "s/pRes/2e-6/g" system/fvSolution
+        sed -i "s/URes/1e-6/g" system/fvSolution
+        sed -i "s/otherRes/2e-6/g" system/fvSolution
+	sed -i "s/wCoeff/2.0/g" 0.komega/flowState
+	./Allrun
+	cd ../../
+	let "n+=1"
+done
+done
+done
+#------------------------------------------------------------------------------

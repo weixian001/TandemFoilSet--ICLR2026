@@ -1,0 +1,26 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+
+airfoilf=(0006 0012 0016 0021 0022
+	1408 1412 1514 1620 2308
+	2408 2412 2514 2614 3220
+	3310 3412 3508 3614 4314
+	4408 4412 4515 5412 5510
+	5614 6409 6412 6514 6610)
+
+nm=(0 30 60 90 120 
+   150 180 210 240 270
+   300 330 360 390 420
+   450 480 510 540 570
+   600 630 660 690 720
+   750 780 810 840 870)
+n=0
+for k in ${nm[@]}
+do
+	cp randomFields_cruise randomFields_cruise${n}
+	runFile="randomFields_cruise${n}"
+	sed -i "s/frontairfoil/${airfoilf[n]}/g" $runFile
+	sed -i "s/nnumber/${k}/g" $runFile
+	nohup ./$runFile > log.random${k} 2>&1 &
+	let "n+=1"
+done

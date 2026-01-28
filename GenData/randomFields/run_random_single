@@ -1,0 +1,14 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+
+n=(0 147 294 441 588 735 882)
+naca1=(0 1 2 3 4 5 6)
+range=(0 1 2 3 4 5 6)
+for k in ${range[@]}
+do
+	cp randomFields_single randomFields_single${k}
+	runFile="randomFields_single${k}"
+	sed -i "s/firstnum/${naca1[$k]}/g" $runFile
+	sed -i "s/nnumber/${n[$k]}/g" $runFile
+	nohup ./$runFile > log.random${k} 2>&1 &
+done

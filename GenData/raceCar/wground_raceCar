@@ -1,0 +1,148 @@
+#!/bin/bash
+#------------------------------------------------------------------------------
+# Source the function file
+. ./min_calculator_inverse2
+. ./max_calculator_inverse2
+. ./min_inverse_wSegment
+. ./max_inverse_wSegment
+
+n=nnumber 
+airfoilf=(frontairfoil)
+
+airfoilb=(2306 2408 3507 3610 3909 4510 4607 5306 5505 5709 6306 6408 6507 6609 6805
+		7306 7408 7509 7610 7805 8306 8408 8610 8707 8809 9306 9408 9610 9707 9809)
+
+simType=(RAS)
+readarray -t Resize < random_ReAoaHc/seed_1234_Size.txt
+readarray -t Re < random_ReAoaHc/seed_1234_Re.txt
+readarray -t aoa < random_ReAoaHc/seed_1234_Aoa.txt
+readarray -t h_c < random_ReAoaHc/seed_1234_Hc.txt
+readarray -t h_c_b < random_ReAoaHc/seed_1234_Hcb.txt
+readarray -t s_c_b < random_ReAoaHc/seed_1234_Scb.txt 
+readarray -t aoa2 < random_ReAoaHc/seed_1234_Aoa2.txt
+kit_vis=1.461e-5
+var=(10)
+for k in ${airfoilf[@]}
+do
+for j in ${airfoilb[@]}
+do
+	echo "Contructing ${n}th case ...... "
+	rootCase="raceCar_randomFields"
+
+	# GETTING COORDINATES
+	# for airfoil_b
+	# calculate min/max y coordinate after rotate at aoa at trailing edge
+	aoa_b=$(echo "${aoa[n]}+${aoa2[n]}" | bc -l) # resultant aoa of airfoil_b
+	echo "Resultant aoa of airfoil_b: $aoa_b"
+	result=$(calculate_min ${Resize[n]} $aoa_b ${j:0:1} ${j:1:1} ${j:2}) # inputs: aoa, naca1, naca2, naca34
+	min_y_b=$(echo $result | cut -d' ' -f2)
+	min_x_b=$(echo $result | cut -d' ' -f4)
+	echo "Get Naca $j minimum xy-coordinate: ($min_x_b, $min_y_b)" # neg by deflaut
+	result=$(calculate_max ${Resize[n]} $aoa_b ${j:0:1} ${j:1:1} ${j:2}) # inputs: aoa, naca1, naca2, naca34
+	max_y_b=$(echo $result | cut -d' ' -f2)
+	max_x_b=$(echo $result | cut -d' ' -f4)
+	echo "Get Naca $j maximum xy-coordinate: ($max_x_b, $max_y_b)" 
+
+	#Contructing cases ...
+	case="naca_${k}_${j}_Re${Re[n]}_aoa${aoa[n]}_hc${h_c[n]}_Resize${Resize[n]}_hcb${h_c_b[n]}_scb${s_c_b[n]}_aoab${aoa_b}"
+	jobName="naca${k}_${j}"
+
+	rm -r $rootCase/$case
+	mkdir $rootCase/$case
+	cp -r tem_raceCar/* $rootCase/$case
+	cp -r oversetMeshes_b/naca_${j}_${Resize[n]} $rootCase/$case/airfoil_b/constant/polyMesh
+
+	# GETTING COORDINATES
+	# for airfoil_f
+	# calculate min/max y coordinate after rotate at aoa at trailing edge
+	if [ $k == "CH10" ] || [ $k == "E423" ] || [ $k == "FX74" ] || [ $k == "LA5055" ] || [ $k == "S1210" ]
+	then
+		echo "Using special airfoils: $k " 
+		cp -r oversetMeshes/${k} $rootCase/$case/airfoil_f/constant/polyMesh
+		result=$(calculate_min_wsegment "${rootCase}/${case}/airfoil_f/constant/polyMesh/segment.dat" ${aoa[n]})
+		min_y=$(echo $result | cut -d' ' -f2)
+        	min_x=$(printf "%.3f" $(echo $result | cut -d' ' -f4) )
+        	echo "Get Airfoil $k minimum xy-coordinate: ($min_x, $min_y)" # neg y by deflaut
+		result=$(calculate_max_wsegment "${rootCase}/${case}/airfoil_f/constant/polyMesh/segment.dat" ${aoa[n]})
+		max_y=$(echo $result | cut -d' ' -f2)
+		max_x=$(echo $result | cut -d' ' -f4)
+		echo "Get Airfoil $k maximum xy-coordinate: ($max_x, $max_y)"
+	else
+		cp -r oversetMeshes/naca_${k} $rootCase/$case/airfoil_f/constant/polyMesh
+		result=$(calculate_min 1.0 ${aoa[n]} ${k:0:1} ${k:1:1} ${k:2}) # inputs: aoa, naca1, naca2, naca34
+		min_y=$(echo $result | cut -d' ' -f2)
+		min_x=$(printf "%.3f" $(echo $result | cut -d' ' -f4) )
+		echo "Get Naca $k minimum xy-coordinate: ($min_x, $min_y)" # neg y by deflaut
+		result=$(calculate_max 1.0 ${aoa[n]} ${k:0:1} ${k:1:1} ${k:2}) # inputs: aoa, naca1, naca2, naca34
+		max_y=$(echo $result | cut -d' ' -f2)
+		max_x=$(echo $result | cut -d' ' -f4)
+		echo "Get Naca $k maximum xy-coordinate: ($max_x, $max_y)"
+	fi
+
+	cd $rootCase/$case
+	blockDictall="all/system/blockMeshDict"
+
+	# resultant vertical translation scale
+	resultH_c=$(printf "%.3f" $( echo "( ${h_c[n]} - ${min_y} )" | bc -l ) )
+	echo "Resultant vertical translation for airfoil_f: $resultH_c"
+	sed -i "s/h_c/${resultH_c}/g" airfoil_f/Allrun
+	
+	resultH_cb=$(printf "%.3f" $( echo "( ${h_c_b[n]} + ${h_c[n]} - ${min_y} + ${max_y} - ${min_y_b} )" | bc -l ) )
+	#resultH_cb=$(printf "%.3f" $( echo "( ${h_c_b[n]} + ${h_c[n]} - ${min_y} + ${max_y} - (${min_y_b}*${Resize[n]}) )" | bc -l ) )
+	echo "Resultant vertical translation for airfoil_b: $resultH_cb"
+	sed -i "s/h_c/${resultH_cb}/g" airfoil_b/Allrun
+
+	resultS_cb=$(printf "%.3f" $( echo "( $max_x - $min_x_b - ${s_c_b[n]}*${Resize[n]} )" | bc -l ) )
+	#resultS_cb=$(printf "%.3f" $( echo "( $max_x - ($min_x_b*${Resize[n]}) - ${s_c_b[n]}*${Resize[n]} )" | bc -l ) )
+	echo "Resultant horizontal translation for airfoil_b: $resultS_cb"
+	sed -i "s/s_c/${resultS_cb}/g" airfoil_b/Allrun
+
+	zmax_y_b=$(printf "%.3f" $( echo "( ${h_c_b[n]} + ${h_c[n]} - ${min_y} + ${max_y} - ${min_y_b} + ${max_y_b} )" | bc -l ) )
+	#zmax_y_b=$(printf "%.3f" $( echo "( ${h_c_b[n]} + ${h_c[n]} - ${min_y} + ${max_y} - (${min_y_b}*${Resize[n]}) + (${max_y_b}*${Resize[n]}) )" | bc -l ) )
+	#echo "Resultant zmaxi : $zmax_y_b"
+	sed -i "s/zmin_y_f;/zmin_y_f ${h_c[n]};/g" $blockDictall
+	sed -i "s/zmax_y_b;/zmax_y_b ${zmax_y_b};/g" $blockDictall
+	xmax_x_b=$(printf "%.3f" $( echo "( ${resultS_cb} + ${max_x_b} )" | bc -l ) )
+	#xmax_x_b=$(printf "%.3f" $( echo "( ${resultS_cb} + (${max_x_b}*${Resize[n]}) )" | bc -l ) )
+	#echo "Resultant xmaxi : $xmax_x_b"
+	sed -i "s/xmin_x_f;/xmin_x_f ${min_x};/g" $blockDictall
+	sed -i "s/xmax_x_b;/xmax_x_b ${xmax_x_b};/g" $blockDictall
+	echo "Bound box of refined background mesh: (${min_x}, ${h_c[n]}) , (${xmax_x_b}, ${zmax_y_b})" 
+
+	# Calculate Umag at effective chord length: C_f + C_b
+	c_eff=$(echo "${xmax_x_b} - ${min_x}"| bc -l)
+	sed -i "s/c_eff;/c_eff $c_eff;/g" all/0.komega/flowState
+	echo "Effective chord length = $c_eff"
+	nu=$(echo "${kit_vis}" | awk '{ printf "%.8f\n", $1 }')
+	RE=$(echo "${Re[n]}" | awk '{ printf "%.1f\n", $1 }')
+	result=$(echo "${RE}*${nu}/${c_eff}" | bc -l)
+	Umag=$(printf "%.5f" $result)
+	echo "For Re = $RE at Umag = $Umag"
+	sed -i "s/Uinf;/$Umag;/g" all/system/forces
+
+	sed -i "s/kinematic_viscosity/${kit_vis}/g" all/0.komega/flowState
+	sed -i "s/zC2CExpRatio/1.1/g" $blockDictall
+	sed -i "s/halfdomain/${var[0]}/g" all/0.komega/flowState $blockDictall
+	sed -i "s/BLvalue/2e-5/g" all/0.komega/flowState
+	sed -i "s/cellSize/0.01/g" $blockDictall
+	sed -i "s/simType;/${simType[0]};/g" all/constant/turbulenceProperties
+	sed -i "s/jobName/$jobName/g" all/run.pbs
+	sed -i "s/size_f/1/g" $blockDictall all/0.komega/flowState
+	sed -i "s/size_b/${Resize[n]}/g" airfoil_b/Allrun all/0.komega/flowState
+	sed -i "s/AOA/${aoa[n]}/g" airfoil_f/Allrun 
+	sed -i "s/AOA/$aoa_b/g" airfoil_b/Allrun
+	sed -i "s/Re number;/Re ${Re[n]};/g" all/0.komega/flowState
+	sed -i "s/jobName/$case/g" all/run.pbs
+        sed -i "s/pRelax/0.3/g" all/system/fvSolution
+        sed -i "s/URelax/0.1/g" all/system/fvSolution
+        sed -i "s/otherRelax/0.3/g" all/system/fvSolution
+        sed -i "s/pRes/5e-5/g" all/system/fvSolution
+        sed -i "s/URes/5e-5/g" all/system/fvSolution
+        sed -i "s/otherRes/5e-5/g" all/system/fvSolution
+	sed -i "s/wCoeff/2.0/g" all/0.komega/flowState
+	./Allrun
+	cd ../../
+	let "n+=1"
+done
+done
+#------------------------------------------------------------------------------

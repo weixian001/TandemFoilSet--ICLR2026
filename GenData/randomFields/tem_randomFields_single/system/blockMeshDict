@@ -1,0 +1,347 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v1912                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+scale	1;
+domainsize halfdomain;
+maxH maxHvalue;
+
+domain
+{
+    xMin #calc "$domainsize * -1.0 + 1"; //#calc " -100 + 1"; //-4;
+    xMax #calc "$domainsize + 1.0"; //#calc " 100 + 1"; //4;
+    zMin #calc "$domainsize * -1.0"; //-2;
+    zMax $domainsize; // 100; //2;
+
+    // Mesh grading
+    // Bl to far-field
+    BL		BLvalue;
+    zRatio	zC2CExpRatio;
+    zCells	#calc "ceil(log(1-($zMax/$BL)*(1-$zRatio))/log($zRatio))";
+    FarField	#calc "$BL*pow($zRatio,$zCells-1)";//FarFieldvalue;
+    zGrading    #calc"$FarField/$BL"; // aerofoil to far field
+    //zCells  	zCellsvalue;// aerofoil to far field , cylinder grid no , x2 = grid btw [zMin zMax]
+
+    // From MaxChamber to TE (0.3m to 1m)
+    dxMTE       dxMTEvalue; // at TE
+    dxMCh       dxMchvalue; // at MaxChamber
+    xMGrading   #calc "$dxMCh/$dxMTE";  // > 1  
+    xMCells 	xMCellsvalue; //#calc "round(0.7/$dzM)"; // middle dis=0.7
+
+    // upper airfoil points = xUCells + xMcells
+    dxMLE       dxMLEvalue; // at TE
+    xUGrading   #calc "$dxMCh/$dxMLE"; //5.0; // towards centre upstream/ outer circum of cyclinder
+    leadGrading #calc "$dxMLE/$dxMCh"; //0.2; // towards leading edge of airfoil
+    xUCells 	xUCellsvalue; 
+
+    //Total arifoil points and its ratio of each portion
+    xAirfoil #calc "$xUCells + $xMCells";
+    //xUratio  #calc "$xUCells/($xAirfoil)";
+
+    // Downstream of airfoil
+    xDCells     #calc "ceil(log(1-($zMax/$dxMTE)*(1-$zRatio))/log($zRatio))";
+    xDFarField  #calc "$dxMTE*pow($zRatio,$xDCells-1)";
+    xDGrading   #calc "$xDFarField/$dxMTE"; //10; //200;  // downstream
+    //xDCells 	xDCellsvalue; // downstream
+
+    // Arc dist
+    arczMin #calc "$zMin*sin(Foam::constant::mathematical::pi*0.25)+1";
+    arczMax #calc "$zMax*sin(Foam::constant::mathematical::pi*0.25)";
+    arczMin2 #calc "$zMin*sin(Foam::constant::mathematical::pi*0.25)";
+}	
+
+aerofoil
+{
+    xLead   0;
+    zLead   0;
+    xTrail  1;
+    zTrail  0;
+    xUpper  xLPvalue;
+    zUpper  #calc "$maxH/2";
+    xLower  xLPvalue;
+    zLower  #calc "-$maxH/2";
+}
+																	
+vertices																	
+(																	
+	(	0	0	0	)		//	0
+	(	1	0	0	)		//	1
+	(	1	0	$domain.zMax	)	//	2
+	(	$domain.xMin	0	0	)	//	3
+	(	0	1	0	)		//	4
+	(	1	1	0	)		//	5
+	(	1	1	$domain.zMax	)	//	6
+	(	$domain.xMin	1	0	)	//	7
+	(	$domain.xMax	0	0	)	//	8
+	(	$domain.xMax	0	$domain.zMax)	//	9
+	(	$domain.xMax	1	0	)	//	10
+	(	$domain.xMax	1	$domain.zMax)	//	11						
+	(	1	0   $domain.zMin	)	//	12										
+	(	1	1   $domain.zMin	)	//	13								
+	(	$domain.xMax	0   $domain.zMin)	//	14										
+	(	$domain.xMax	1   $domain.zMin)	//	15
+	(	1	0	0	)		//	16										
+	(	1	1	0	)		//	17									
+																	
+);																	
+																	
+																	
+blocks																	
+(																	
+	hex	(0 1 5 4 3 2 6 7) ( $:domain.xAirfoil 1 $:domain.zCells )	//block	0
+	edgeGrading																
+	(															
+		//	x-direction	expansion	ratio													
+	    (	// ( dist num_cell_ratio grading)
+		($:aerofoil.xUpper $:aerofoil.xUpper #calc "1.0/($:domain.leadGrading)")
+		(#calc "1.0-($:aerofoil.xUpper)" #calc "1.0-($:aerofoil.xUpper)" #calc "1.0/($:domain.xMGrading)")
+	    )											
+	    (
+		// ( dist num_cell_ratio grading)						
+		($:aerofoil.xUpper $:aerofoil.xUpper #calc "1.0/($:domain.leadGrading)")
+		(#calc "1.0-($:aerofoil.xUpper)" #calc "1.0-($:aerofoil.xUpper)" #calc "1.0/($:domain.xMGrading)")														
+	    )
+
+	    0.005821138769 0.005821138769 
+
+		//	y-direction	expansion	ratio
+		1	1	1	1	
+
+		//	z-direction	expansion ratio	(BL + far-field)
+		$:domain.zGrading $:domain.zGrading $:domain.zGrading $:domain.zGrading
+	)
+
+	hex	(1 8 10	5 2 9 11 6) ( $:domain.xDCells 1 $:domain.zCells)	//block	1
+	edgeGrading
+	(
+		//	x-direction	expansion	ratio
+		$:domain.xDGrading $:domain.xDGrading $:domain.xDGrading $:domain.xDGrading
+
+		//	y-direction	expansion	ratio
+		1 1 1 1
+
+		//	z-direction	expansion	ratio
+		$:domain.zGrading $:domain.zGrading $:domain.zGrading $:domain.zGrading
+	)
+
+	hex	(3 12 13 7 0 16	17 4) ( $:domain.xAirfoil 1 $:domain.zCells)	//block	2
+	edgeGrading
+	(
+		//	x-direction	expansion	ratio
+	   0.005821138769 0.005821138769
+	   (
+		// ( dist num_cell_ratio grading)
+		($:aerofoil.xLower $:aerofoil.xLower #calc "1.0/($:domain.leadGrading)")
+		(#calc "1.0-($:aerofoil.xLower)" #calc "1.0-($:aerofoil.xLower)" #calc "1.0/($:domain.xMGrading)")
+	   )
+	   (
+		// ( dist num_cell_ratio grading)
+		($:aerofoil.xLower $:aerofoil.xLower #calc "1.0/($:domain.leadGrading)")
+		(#calc "1.0-($:aerofoil.xLower)" #calc "1.0-($:aerofoil.xLower)" #calc "1.0/($:domain.xMGrading)")
+	   )
+
+		//	y-direction	expansion	ratio
+		1	1	1	1
+
+		//	z-direction	expansion	ratio
+		#calc "1.0/($:domain.zGrading)" #calc "1.0/($:domain.zGrading)" #calc "1.0/($:domain.zGrading)" #calc "1.0/($:domain.zGrading)"
+	)
+
+	hex	(12 14 15 13 16	8 10 17) ($:domain.xDCells 1 $:domain.zCells)	//block	3
+	edgeGrading
+	(
+		//	x-direction	expansion	ratio
+		$:domain.xDGrading $:domain.xDGrading $:domain.xDGrading $:domain.xDGrading
+
+		//	y-direction	expansion	ratio
+		1 1 1 1
+
+    	//	z-direction	expansion	ratio
+		#calc "1.0/($:domain.zGrading)" #calc "1.0/($:domain.zGrading)" #calc "1.0/($:domain.zGrading)" #calc "1.0/($:domain.zGrading)"
+	)
+);
+
+edges
+(
+	arc	3 2	( $:domain.arczMin 0 $:domain.arczMax )
+	arc	7 6	( $:domain.arczMin 1 $:domain.arczMax )
+
+	arc	3 12	( $:domain.arczMin 0 $:domain.arczMin2)
+	arc	7 13	( $:domain.arczMin 1 $:domain.arczMin2)
+
+	        #codeStream
+        {
+                code
+                #{
+                    const label nPts(199);
+
+                    pointField ptsU(nPts, point(0,0,0));
+                    pointField ptsL(nPts, point(0,0,0));
+
+                    const scalar xStart(0.0), xEnd(Foam::constant::mathematical::pi);
+
+                    const scalar dx((xEnd-xStart)/(nPts+2));
+
+		    const scalar a0(0.2969), a1(-0.1260), a2(-0.3516), a3(0.2843), a4(-0.1036);
+		    const scalar t(maxHvalue), m(naca1digit*0.01), p(naca2digit*0.1);
+		    //const scalar t(naca34digits*0.01), m(naca1digit*0.01), p(naca2digit*0.1);
+
+                    forAll(ptsU, i)
+                    {
+                        const scalar betaA(xStart + dx*(i+1)); //for lower surface LE to TE
+                        const scalar betaD(xEnd - dx*(i+1)); // for upper surface TE to LE
+
+			const scalar xA(0.5*(1-cos(betaA)));
+			const scalar xD(0.5*(1-cos(betaD)));
+			const scalar ytA( (t/0.2)*(a0*sqrt(xA)+a1*xA+a2*pow(xA,2)+a3*pow(xA,3)+a4*pow(xA,4)) );
+			const scalar ytD( (t/0.2)*(a0*sqrt(xD)+a1*xD+a2*pow(xD,2)+a3*pow(xD,3)+a4*pow(xD,4)) );
+			scalar xu, yu, xl, yl;
+	
+			if (p == 0)
+			{ 
+			    xu=xD; yu=ytD; xl=xA; yl=-ytA;
+			}
+			else
+			{
+				scalar ycA, ycD, dycA_dxA, dycD_dxD;
+			   if (xA < p)
+                           {
+                                ycA 		= (m/pow(p,2))*(2*p*xA-pow(xA,2)) ;
+				dycA_dxA	= (m/pow(p,2))*(2*p-2*xA) ;
+			   }
+			   else 
+			   {
+				ycA 		= (m/pow(1-p,2))*((1-2*p)+2*p*xA-pow(xA,2));
+                                dycA_dxA	= (m/pow(1-p,2))*(2*p-2*xA);
+			   }
+			   if (xD < p)
+                           {
+                                ycD 		= (m/pow(p,2))*(2*p*xD-pow(xD,2)) ;
+				dycD_dxD	= (m/pow(p,2))*(2*p-2*xD) ;
+			   }
+			   else 
+			   {
+				ycD		= (m/pow(1-p,2))*((1-2*p)+2*p*xD-pow(xD,2));
+                                dycD_dxD	= (m/pow(1-p,2))*(2*p-2*xD);
+			   }
+				const scalar thetaA(atan(dycA_dxA));
+				const scalar thetaD(atan(dycD_dxD));
+				xu	= xD-(ytD*sin(thetaD));
+				yu	= ycD+(ytD*cos(thetaD));
+    				xl	= xA+(ytA*sin(thetaA));
+    				yl	= ycA-(ytA*cos(thetaA));
+                        }
+                                ptsU[i] = point(xu, 0, yu);
+                                ptsL[i] = point(xl, 0, yl);
+                    }
+                    os<< "spline 1 0 " << ptsU;
+
+                    ptsU.replace(1, 1);
+                    os<< "spline 5 4 " << ptsU;
+
+                    //pts.replace(1, -pts.component(1));
+                    os<< "spline 0 16 " << ptsL;
+
+                    ptsL.replace(1, 1);
+                    os<< "spline 4 17" << ptsL;
+                #};
+
+                codeInclude
+                #{
+                    #include "pointField.H"
+                #};
+	}
+);																	
+																	
+boundary
+(
+	Inlet
+        {
+            type patch;
+            faces
+            (
+                (2 9 11 6)
+		(3 2  6 7 )
+                (12 3 7 13 )
+                (14 12 13 15)
+            );
+        }
+																	
+	Outlet
+        {
+            type patch;
+            faces
+            (
+                (9 8 10 11)
+                (8 14 15 10)
+            );
+        }
+																	
+	Airfoil
+        {
+            type wall;
+            faces
+            (
+                (0 4 5 1)
+                (0 16 17 4)
+            );															
+        }
+
+	Back
+	{
+            type empty;
+            faces
+            (
+                (0 1 2 3)
+		(1 8 9 2)
+                (3 12 16 0)
+		(12 14 8 16)
+            );
+	}
+
+	Front
+	{
+            type empty;
+            faces
+            (
+                (5 4 7 6)
+		(5 6 11 10)
+                (13 7 4 17)
+		(13 17 10 15)
+            );
+	}
+																	
+	interface1
+        {
+            type patch;
+            faces
+            (
+                (1 5 10 8)
+            );
+        }
+	interface2
+        {
+            type patch;
+            faces
+            (
+                (16 8 10 17)
+            );
+        }
+);
+																	
+mergePatchPairs
+(
+    ( interface1 interface2 )
+);
+// ************************************************************************* //

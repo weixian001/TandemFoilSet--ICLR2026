@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# Function to calculate the minimum y-coordinate and corresponding x-coordinate
+calculate_max_wsegment() 
+{
+    local input_file="$1"
+    local alpha_deg="$2"
+
+    # Convert angle of attack to radians
+    alpha_rad=$(echo "scale=10; $alpha_deg * (3.141592653589793 / 180)" | bc -l)
+
+    # Initialize variables for maximum y-coordinate and corresponding x-coordinate
+    max_y=-999999
+    max_yx=0
+    # Initialize variables for maximum x-coordinate and corresponding y-coordinate
+    max_x=-999999
+    max_xy=0
+
+    # Read the input file line by line
+    while IFS= read -r line; do
+	#echo $line
+        x_coordinate=$(echo "$line" | awk '{print $1}')
+        y_coordinate=$(echo "$line" | awk '{print -$3}')  # Flip y-values upside down
+
+        x_coordinate=$(echo "$x_coordinate" | sed 's/e-/*10^-/g')
+        y_coordinate=$(echo "$y_coordinate" | sed 's/e-/*10^-/g')
+        x_coordinate=$(echo "$x_coordinate" | sed 's/e+/*10^/g')
+        y_coordinate=$(echo "$y_coordinate" | sed 's/e+/*10^/g')
+
+        # Apply clockwise rotation at the specified angle of attack
+	x_rot=$(echo "1 + ($x_coordinate - 1)*c($alpha_rad) + $y_coordinate*s($alpha_rad)" | bc -l)
+	y_rot=$(echo "-($x_coordinate - 1)*s($alpha_rad) + $y_coordinate*c($alpha_rad)" | bc -l)
+
+        # Compare and update maximum y-coordinate and corresponding x-coordinate
+	if (( $(echo "$y_rot > $max_y" | bc -l) )) ; then
+            max_y=$y_rot
+            max_yx=$x_rot
+        fi
+        # Compare and update maximum x-coordinate and corresponding y-coordinate
+	if (( $(echo "$x_rot > $max_x" | bc -l) )) ; then
+            max_xy=$y_rot
+            max_x=$x_rot
+        fi
+    done < "$input_file"
+
+    echo "$max_yx $max_y $max_xy $max_x"
+}
+
+#result=$(calculate_min_wsegment "segment.dat" 0.0)
+#min_y=$(echo "$result" | awk '{print $1}')
+#min_x=$(echo "$result" | awk '{print $2}')
+
+#echo "Minimum y-coordinate: $min_y at x-coordinate: $min_x"
+

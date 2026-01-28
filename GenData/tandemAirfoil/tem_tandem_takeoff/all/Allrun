@@ -1,0 +1,28 @@
+#!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
+
+./Allclean
+
+cp -r 0.which 0
+mv system/blockMeshDict.type system/blockMeshDict
+runApplication blockMesh
+
+mergeMeshes . ../airfoil_f -overwrite > /dev/null
+mergeMeshes . ../airfoil_b -overwrite > /dev/null
+
+runApplication checkMesh
+
+# Use cellSets to write zoneID
+runApplication setFields
+qsub run.pbs
+# ./run
+# Serial
+#runApplication $(getApplication)
+
+# Parallel
+#runApplication decomposePar 
+#runParallel $(getApplication)
+
+#------------------------------------------------------------------------------
