@@ -1,4 +1,4 @@
-# TandemFoilSet: Datasets for Flow Field Prediction of Tandem-Airfoil
+# TandemFoilSet
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -9,7 +9,8 @@ This repository contains the dataset generation and extraction code for high-fid
 If you use this code or dataset in your research, please cite the following papers:
 
 ```bibtex
-@article{lim2025accelerating,
+@article{
+  lim2025accelerating,
   title={Accelerating fluid simulations with graph convolution network predicted flow fields},
   author={Lim, W. X. and Jessica, L. S. E. and Lv, Y. and Kong, A. W. K. and Chan, W. L.},
   journal={Aerospace Science and Technology},
@@ -20,17 +21,35 @@ If you use this code or dataset in your research, please cite the following pape
 }
 
 @inproceedings{
-lim2026tandemfoilset,
-title={{TandemFoilSet}: Datasets for Flow Field Prediction of Tandem-Airfoil Through the Reuse of Single Airfoils},
-author={Lim, W. X. and Jessica, L. S. E. and Li, Z. and Oo, T. Z. and Chan, W. L. and Kong, A. W. K.},
-booktitle={The Fourteenth International Conference on Learning Representations},
-year={2026},
-url={https://openreview.net/forum?id=4Z0P4Nbosn}
+  lim2026tandemfoilset,
+  title={{TandemFoilSet}: Datasets for Flow Field Prediction of Tandem-Airfoil Through the Reuse of Single Airfoils},
+  author={Lim, W. X. and Jessica, L. S. E. and Li, Z. and Oo, T. Z. and Chan, W. L. and Kong, A. W. K.},
+  booktitle={The Fourteenth International Conference on Learning Representations},
+  year={2026},
+  url={https://openreview.net/forum?id=4Z0P4Nbosn}
 }
 ```
 
+## 📊 Dataset Access
+
+### Pre-computed Datasets
+
+- **Single-Airfoil Datasets** (pickle format)
+  - [🔗 NTU Dataverse](https://doi.org/10.21979/N9/9OYSTD)
+
+- **Tandem-Airfoil Datasets** (raw OpenFOAM + pickle format)
+  - [🔗 NTU Dataverse](https://doi.org/10.21979/N9/KTXSCU)
+
+### Dataset Statistics
+
+- **Single-Airfoil**: ~400 cases with varying NACA profiles, Re, and AoA
+- **Tandem-Airfoil Cruise**: ~500 cases with varying configurations
+- **Tandem-Airfoil Takeoff**: ~200 cases with ground effect
+- **Race Car**: ~300 cases with ground effect and random conditions
+
 ## 📋 Table of Contents
 
+- [Dataset Access](#-dataset-access)
 - [Overview](#overview)
 - [Repository Structure](#repository-structure)
 - [Prerequisites](#prerequisites)
@@ -38,7 +57,6 @@ url={https://openreview.net/forum?id=4Z0P4Nbosn}
 - [Usage](#usage)
   - [Dataset Generation](#dataset-generation)
   - [Data Extraction](#data-extraction)
-- [Dataset Access](#dataset-access)
 - [Configuration Guide](#configuration-guide)
 - [License](#license)
 
@@ -71,7 +89,9 @@ TandemFoilSet-ICLR/
 │       ├── run_singleRaceCar/       # Inverted single-airfoil with ground effect
 │       └── run_raceCar/             # Race car with ground effect
 ├── ExtractData/               # Data extraction codes
-│   └── aa_extract_openfoam_data.py    # Extract OpenFOAM data to PyTorch format
+│   ├── aa_extract_openfoam_data.py    # Extract OpenFOAM data to PyTorch format
+│   ├── fun_LoadData.py                # OpenFOAM mesh loading and graph building
+│   └── getDID.py                      # Geometry features (SAF, DSDF, DID)
 └── README.md                  # This file
 ```
 
@@ -91,6 +111,7 @@ TandemFoilSet-ICLR/
     numpy>=1.20.0
     matplotlib>=3.3.0
     networkx>=2.6.0
+    openfoamparser>=0.5.0
     ```
 
 ### System Requirements
@@ -110,7 +131,7 @@ TandemFoilSet-ICLR/
 
 2. **Install Python dependencies:**
    ```bash
-   pip install torch torch-geometric numpy matplotlib networkx
+   pip install torch torch-geometric numpy matplotlib networkx openfoamparser
    ```
 
 3. **Set up OpenFOAM:**
@@ -120,9 +141,9 @@ TandemFoilSet-ICLR/
      source /path/to/OpenFOAM/OpenFOAM-2112/etc/bashrc
      ```
 
-4. **Install additional dependencies:**
-   - The code requires custom modules (`fun_LoadData`, `getDID`)
-   - Ensure these modules are in your Python path or in the same directory
+4. **ExtractData modules:**
+   - Run extraction from the `ExtractData/` directory so `fun_LoadData` and `getDID` are on the path
+   - Or add `ExtractData/` to your `PYTHONPATH`
 
 ## 🚀 Usage
 
@@ -153,7 +174,11 @@ cd GenData/tandemAirfoil/tandem_cruise/
 
 ### Data Extraction
 
-The `ExtractData/aa_extract_openfoam_data.py` script extracts flow field data from OpenFOAM cases and converts them to PyTorch Geometric format.
+The `ExtractData/` directory contains the extraction pipeline:
+
+- **aa_extract_openfoam_data.py**: Main script—reads OpenFOAM cases and outputs pickle datasets
+- **fun_LoadData.py**: Loads OpenFOAM mesh (`fun_foam2mesh`), builds graph (`fun_foam2graph`), connects overset meshes (`fun_new_edges2`)
+- **getDID.py**: Computes geometry features—`getSV` (SAF), `getDSDF`/`getDSDF2`/`getDSDF3`/`getDSDF_multi` (DSDF), `getDID` (DID for multi-object with unobstructed visibility)
 
 #### Basic Usage
 
@@ -190,23 +215,6 @@ The script generates a pickle file containing a list of PyTorch Geometric `Data`
 - `saf`: Signed airfoil field (geometry feature)
 - `dsdf`: Distance to surface field (geometry feature)
 
-## 📊 Dataset Access
-
-### Pre-computed Datasets
-
-- **Single-Airfoil Datasets** (pickle format)
-  - [🔗 NTU Dataverse](https://doi.org/10.21979/N9/9OYSTD)
-
-- **Tandem-Airfoil Datasets** (raw OpenFOAM + pickle format)
-  - [🔗 NTU Dataverse](To be updated)
-
-### Dataset Statistics
-
-- **Single-Airfoil**: ~400 cases with varying NACA profiles, Re, and AoA
-- **Tandem-Airfoil Cruise**: ~500 cases with varying configurations
-- **Tandem-Airfoil Takeoff**: ~200 cases with ground effect
-- **Race Car**: ~300 cases with ground effect and random conditions
-
 ## ⚙️ Configuration Guide
 
 ### Supported Path Patterns
@@ -222,13 +230,14 @@ The extraction script automatically detects configuration types based on path pa
 ### Flow Conditions
 
 - **Fixed Conditions**: Re=500, AoA=0 or 5
-- **Random Conditions**: Re ∈ [10⁵, 5×10⁶], AoA ∈ [-5°, 7°]
+- **Random Conditions**: Re ∈ [10⁵, 5×10⁶], AoA ∈ [-5°, 6°]
 
 ### Geometry Features
 
-The extraction script automatically computes:
-- **SAF (Signed Airfoil Field)**: SV
-- **DSDF (Distance to Surface)**: DID
+The extraction uses `getDID.py` to compute:
+- **SAF (Signed Airfoil Field)**: Vector from each point to its closest airfoil surface point (`getSV`)
+- **DSDF (Directional Signed Distance Field)**: Distance to surface in angular segments—single boundary (`getDSDF`), tandem (`getDSDF2`), three-airfoil (`getDSDF3`), or arbitrary boundaries (`getDSDF_multi`)
+- **DID (Directional Integrated Distance)**: Multi-object distance with unobstructed visibility check (`getDID`)
 
 ## 📄 License
 
