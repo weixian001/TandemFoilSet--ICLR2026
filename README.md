@@ -1,6 +1,6 @@
 # TandemFoilSet
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE)
 
 This repository contains the dataset generation and extraction code for high-fidelity CFD simulations used in flow prediction benchmarks. It supports a wide range of aerodynamic configurations, from single and tandem airfoils to race cars.
 
@@ -241,7 +241,7 @@ The extraction uses `getDID.py` to compute:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0) - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
